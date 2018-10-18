@@ -1,0 +1,105 @@
+#!/usr/bin/perl -w
+
+use strict;
+use Cwd;
+use Getopt::Long;
+
+my %options = (
+    verbose => \ (my $verbose),
+    debug => \ (my $debug),
+    'dry-run' => \ (my $dry_run),
+);
+
+GetOptions(%options) && @ARGV > 1 or die "usage: compareDirsAndSymlinkSameFiles [--verbose] [--debug] [--dry-run] <src dirs> <dest dir>\n";
+$verbose ||= $debug;
+
+@ARGV > 1 or usage();
+my @dirs = map { absolutize_dir($_) } @ARGV;
+my $dest_dir = $dirs[-1];
+
+main();
+
+sub main {
+    warn "calling fdupes\n" if $verbose;
+    open(my $F, "fdupes --quiet --recurse @dirs |") or die "fdupes not installed?\n";
+    my @block;
+    while (<$F>) {
+	chomp;
+	if (/^$/) {
+	    process_same_files_raw(@block);
+	    @block = ();
+	} else {
+	    push @block, $_;
+	}
+    }
+}
+
+sub process_same_files_raw {
+    my @files = @_;
+    my ($dests, $srcs) = partition(sub { begins_with($_, $dest_dir) }, @files);
+
+    if (@$dests && @$srcs) {
+	process_same_files($dests, $srcs);
+    } else {
+	warn "skipping identical destination files: @$dests\n" if $debug && @$dests;
+	warn "skipping identical source files: @$srcs\n" if $debug && @$srcs;
+    }
+}
+
+sub process_same_files {
+    my ($dests, $srcs) = @_;
+    my %name2dest = by_basename(@$dests);
+    my %name2src = by_basename(@$srcs);
+    foreach my $name (keys %name2dest) {
+	my @sub_dests = @{$name2dest{$name}};
+	my @sub_srcs = @{$name2src{$name} || []};
+	if (@sub_dests == 1 && @sub_srcs == 1) {
+	    link_it(@sub_srcs, @sub_dests);
+	} elsif (@sub_dests == 1) {
+	    if (@sub_srcs) {
+		warn "multiple source files with same basename $name: @sub_srcs\n" if $debug;
+	    } else {
+		warn "no source file with same basename $name: @sub_dests\n" if $debug;
+	    }
+	} else {
+	    warn "skipping identical destination files with same basename $name: @sub_dests\n" if $debug;
+	}
+    }
+}
+
+sub link_it {
+    my ($src, $dest) = @_;
+    warn "linking $dest => $src\n" if $verbose || $dry_run;
+    if (!$dry_run) {
+	unlink($dest) && symlink($src, $dest) or warn "failed: $!\n";
+    }
+}
+
+sub by_basename {
+    my %h;
+    foreach (@_) {
+	push @{$h{basename($_)}}, $_;
+    }
+    %h;
+}
+
+
+
+# various simple helpers ###############################
+sub basename { local $_ = shift; s|/*\s*$||; s|.*/||; $_ }
+sub begins_with {
+    my ($s, $prefix) = @_;
+    index($s, $prefix) == 0;
+}
+sub absolutize_dir {
+    my ($d) = @_;
+    $d =~ m!^/! ? $d : getcwd() . "/$d";
+}
+sub partition {
+    my ($f, @l) = @_;
+    my (@a, @b);
+    foreach (@l) {
+	$f->($_) ? push(@a, $_) : push(@b, $_);
+    }
+    \@a, \@b;
+}
