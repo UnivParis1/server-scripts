@@ -47,7 +47,7 @@ tmp_main ()
   # Ceci n'est possible que si :
   # - le ticket est forwardable (obtenu avec kinit -f)
   # - le ticket a été forwardé (connexion avec ssh -K)
-  KPRINCIPAL=$(klist 2>/dev/null |sed -n 's/.*rincipal: \([^@]*\).*/\1/p')
+  KPRINCIPAL=$(klist 2>/dev/null |sed -n 's/.*rincipal: \([^ ]*\).*/\1/p')
 
   # Ne rien faire si l'utilisateur réel n'a pas pu être détecté
   if [ -z "$KPRINCIPAL" ]
@@ -60,7 +60,7 @@ tmp_main ()
   # Dans le cas contraire, il faut ajouter les options suivantes sur la ligne de commande de ldapsearch :
   # -h ldap.universite.fr
   # -b ou=people,dc=universite,dc=fr
-  LDAP_ATTRIBUTES=$(ldapsearch -x -LLL uid="$KPRINCIPAL" displayName mail)
+  LDAP_ATTRIBUTES=$(ldapsearch -x -LLL up1KrbPrincipal="$KPRINCIPAL" displayName mail)
 
   # Définir les variables qui seront utilisées par "git commit"
   export GIT_AUTHOR_NAME=$(tmp_ldap_attribute "$LDAP_ATTRIBUTES" displayName)
