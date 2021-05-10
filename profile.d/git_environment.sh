@@ -44,10 +44,21 @@ tmp_ldap_attribute ()
 tmp_main ()
 {
   # Récupérer l'identité de l'utilisateur connecté via Kerberos
-  # Ceci n'est possible que si :
+
+  # Méthode 1 : SSH_USER_AUTH
+  # Il faut que ExposeAuthInfo soit activé dans /etc/ssh/sshd_config
+  if [ -n "$SSH_USER_AUTH" ]
+  then
+    KPRINCIPAL=$(sed -n 's/^gssapi-with-mic \([^ ]*\).*/\1/p' $SSH_USER_AUTH)
+  fi
+
+  # Méthode 2 : klist
   # - le ticket est forwardable (obtenu avec kinit -f)
   # - le ticket a été forwardé (connexion avec ssh -K)
-  KPRINCIPAL=$(klist 2>/dev/null |sed -n 's/.*rincipal: \([^ ]*\).*/\1/p')
+  if [ -z "$KPRINCIPAL" ]
+  then
+    KPRINCIPAL=$(klist 2>/dev/null |sed -n 's/.*rincipal: \([^ ]*\).*/\1/p')
+  fi
 
   # Ne rien faire si l'utilisateur réel n'a pas pu être détecté
   if [ -z "$KPRINCIPAL" ]
