@@ -29,7 +29,7 @@ tmp_ldap_attribute ()
   LIGNE=$(echo "$1" |grep ^$2:)
 
   # Si une valeur contient un caractère non-ASCII,
-  # alors elle est encodée en MD5 et le séparateteur entre le nom et la valeur est "::".
+  # alors elle est encodée en MD5 et le séparateur entre le nom et la valeur est "::".
   MD5=$(echo "$LIGNE" |sed -n 's/[^:]*:: \(.*\)/\1/p')
 
   if [ -n "$MD5" ]
